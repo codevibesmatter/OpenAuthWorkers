@@ -1,0 +1,7 @@
+# GitHub OAuth provider settings
+# You'll need to create an OAuth App in GitHub developer settings
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+
+# Environment settings
+ENVIRONMENT=development 

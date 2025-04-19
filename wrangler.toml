@@ -1,0 +1,48 @@
+name = "vibestack-openauth"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Development server configuration
+[dev]
+port = 8788
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+
+# Module aliases
+[alias]
+"debug" = "./src/shims/debug.ts"
+
+# Specify ESM format
+[build]
+command = ""
+watch_dir = "src"
+
+# KV namespace configuration for storing auth tokens
+[[kv_namespaces]]
+binding = "AUTH_STORE"
+id = "preview"
+preview_id = "preview"
+
+# Service binding (applies to deployed worker unless overridden by env)
+[[services]]
+# Bind the "backend" worker where user lookup/creation logic resides.
+# IMPORTANT: The service name below is a PLACEHOLDER.
+# Users cloning this template MUST replace "placeholder-backend-worker" 
+# with the name of their own backend worker.
+# For production, this name will be used unless overridden in [env.production].
+binding = "BACKEND_SERVICE"
+service = "placeholder-backend-worker" # <-- PLACEHOLDER: Change to your actual backend worker name
+
+# Production Environment Configuration
+[env.production]
+# If your production backend worker name is different from the hardcoded
+# name above, you might need to explicitly define the service binding here:
+# [[env.production.services]]
+# binding = "BACKEND_SERVICE"
+# service = "YOUR_PROD_BACKEND_WORKER_NAME"
+
+[env.production.vars]
+ENVIRONMENT = "production"
