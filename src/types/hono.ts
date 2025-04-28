@@ -20,5 +20,10 @@ export interface AppBindings {
      * Execution context for the worker
      */
     ctx: ExecutionContext;
+
+    /**
+     * Auth state for OAuth flow
+     */
+    authState?: string;
   };
 } 

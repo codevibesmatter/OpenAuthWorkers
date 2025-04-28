@@ -5,7 +5,11 @@ compatibility_flags = ["nodejs_compat"]
 
 # Development server configuration
 [dev]
+ip = "localhost"
 port = 8788
+local_protocol = "http"
+upstream_protocol = "http"
+host = "localhost"
 
 # Environment variables
 [vars]
@@ -34,7 +38,7 @@ preview_id = "preview"
 # with the name of their own backend worker.
 # For production, this name will be used unless overridden in [env.production].
 binding = "BACKEND_SERVICE"
-service = "placeholder-backend-worker" # <-- PLACEHOLDER: Change to your actual backend worker name
+service = "vibestack-server" # <-- Updated to match the actual server worker name
 
 # Production Environment Configuration
 [env.production]

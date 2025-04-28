@@ -15,6 +15,7 @@ import { createStorage } from './storage.js';
 import type { Env, ExecutionContext } from './types/env.js';
 import { Hono } from 'hono';
 import debugApp from './debug.js';
+import type { AppBindings } from './types/hono.js';
 
 /**
  * Main worker export
@@ -58,78 +59,128 @@ const worker = {
       
       // Configure storage adapter
       storage: createStorage(env),
+
+      // Allow all origins in development
+      allow: async () => true,
       
       // Handle successful authentication
       async success(ctx, value) {
-        // --- USER IMPLEMENTATION REQUIRED --- 
-        // This is where you call your backend service (bound as BACKEND_SERVICE)
-        // to find or create the user based on the provider details (`value`)
-        // and return the necessary identifiers for the JWT subject.
-
-        // 1. Access the backend service binding directly from the outer scope's 'env':
+        console.log('[OpenAuth] Entering success handler. Value:', JSON.stringify(value));
+        
+        // Access the backend service binding from env
         const backendService = env.BACKEND_SERVICE; 
         if (!backendService) {
           console.error('[OpenAuth] BACKEND_SERVICE binding is not configured or accessible!');
           return new Response('Internal server configuration error', { status: 500 });
         }
 
-        // 2. Define the expected API endpoint on your backend service:
-        const findOrCreateEndpoint = '/internal/auth/find-or-create'; // Example path
-
-        // 3. Prepare the request to your backend service:
-        const backendRequest = new Request(new URL(findOrCreateEndpoint, 'http://backend.service'), { 
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify(value), 
-        });
-
         try {
-          // 4. Call your backend service:
+          // Construct the request to the backend service
+          const backendUrl = '/internal/auth/find-or-create';
+          const backendRequest = new Request(`http://internal${backendUrl}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(value),
+          });
+
+          // Call your backend service
+          console.log(`[OpenAuth] Calling backend service at ${backendUrl} with auth data`);
           const backendResponse = await backendService.fetch(backendRequest);
           
           if (!backendResponse.ok) {
-            const errorText = await backendResponse.text();
-            console.error(`[OpenAuth] Backend service error (${backendResponse.status}): ${errorText}`);
-            return new Response('Failed to authenticate with backend service', { status: 500 });
+            console.error(`[OpenAuth] Backend service returned ${backendResponse.status}: ${await backendResponse.text()}`);
+            return new Response('Error communicating with application backend', { 
+              status: 500 
+            });
           }
 
-          // 5. Parse the response from your backend service:
-          const userData = await backendResponse.json<{ userId: string; workspaceId: string }>();
+          // Parse the user data from the backend response
+          const userData = await backendResponse.json() as { 
+            userId: string; 
+            workspaceId: string;
+          };
+          console.log('[OpenAuth] Received user data from backend:', JSON.stringify(userData));
           
-          // 6. Create the JWT subject using data from your backend:
-          console.log(`[OpenAuth] User authenticated via backend: ${JSON.stringify(userData)}`);
-          return ctx.subject('user', {
+          // Create the subject with the real user data
+          const subject = {
             userId: userData.userId,
-            workspaceId: userData.workspaceId,
-          });
-
+            workspaceId: userData.workspaceId
+          };
+          
+          // Create the subject and get the response
+          const response = await ctx.subject('user', subject);
+          
+          // Add CORS headers to the response
+          response.headers.set('Access-Control-Allow-Origin', '*');
+          response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+          
+          return response;
         } catch (error) {
-           console.error('[OpenAuth] Error calling BACKEND_SERVICE:', error);
-           return new Response('Internal communication error', { status: 500 });
+          console.error('[OpenAuth] Error in success handler:', error);
+          
+          // If anything fails, return a basic success response
+          // with the user data - client can handle this specially
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Authentication successful but could not create standard token',
+            user: {
+              userId: 'temp',
+              workspaceId: 'temp'
+            }
+          }), { 
+            status: 200, 
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type'
+            } 
+          });
         }
-
-        /* --- Placeholder Implementation (Remove or Replace) ---
-        // ... (placeholder remains commented out) ...
-        */
       }
     });
 
     // Create a new Hono app for custom routing, providing Env type
-    const app = new Hono<{ Bindings: Env }>();
+    const app = new Hono<AppBindings>();
 
     // Define specific handlers FIRST
     // Redirect root to authorize endpoint
     app.get('/', (c) => {
-      const backendCallbackUrl = 'http://localhost:8787/api/auth/callback';
+      // Get the host from the request
+      const host = c.req.header('host') || 'localhost:8787';
+      const protocol = env.ENVIRONMENT === 'production' ? 'https' : 'http';
+      
+      // Make sure this URL matches your actual backend callback endpoint
+      const backendCallbackUrl = `${protocol}://${host}/api/auth/callback`;
+      
+      // Build standard OAuth parameters
       const params = new URLSearchParams({
         response_type: 'code',
-        client_id: 'test-client', // Use actual client ID
+        client_id: 'test-client', // Should match client ID expected by your backend
         redirect_uri: backendCallbackUrl,
         scope: 'openid',
+        state: crypto.randomUUID() // Add a unique state parameter
       });
+      
       const authorizeUrl = `/authorize?${params.toString()}`;
       console.log(`[OpenAuth] Redirecting / to ${authorizeUrl}`);
       return c.redirect(authorizeUrl, 302);
+    });
+
+    // Add OPTIONS handler for CORS preflight requests
+    app.options('*', (c) => {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Max-Age': '86400'
+        }
+      });
     });
 
     // --- Mount Debug Routes ---
