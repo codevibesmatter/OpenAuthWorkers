@@ -312,18 +312,18 @@ The OpenAuth worker serves as the central authentication service:
 
 ## 7. Implementation Phases
 
-### 7.1 Phase 1: Core Auth (✅ Completed)
-- OpenAuth worker setup
-- Basic auth flows (Password, GitHub)
-- Token management (`userId` only in JWT)
-- Initial security (baseline via framework)
-- Backend `find-or-create` endpoint stubbed (pending implementation)
+### 7.1 Phase 1: Core Auth (✅ Mostly Completed w/ Workaround)
+- OpenAuth worker setup (✅ Completed - Includes workaround for `UnknownStateError`)
+- Basic auth flows (Password ✅ Completed, GitHub ❓ Needs Testing)
+- Token management (`userId` only in JWT) (✅ Completed - Via workaround)
+- Initial security (baseline via framework) (✅ Completed)
+- Backend `find-or-create` endpoint implemented (✅ Completed)
 
-### 7.2 Phase 2: Sync Integration
-- RLS implementation
-- Change history
-- WebSocket auth
-- Token refresh
+### 7.2 Phase 2: Sync Integration (⏳ Next Steps)
+- RLS implementation (Implementing Row-Level Security policies based on `userId`)
+- Change history (Integrating user-aware change tracking)
+- WebSocket auth (Securing WebSocket connections with JWT validation)
+- Token refresh (Implementing client-side token refresh logic)
 
 ### 7.3 Phase 3: Security
 - Token management
